@@ -1,65 +1,71 @@
-/**
- * Created by Elias on 2016-02-23.
- */
+//  Readers/Writers with concurrent read or exclusive write
+//
+// Usage:
+//         javac rw.real.java
+//         java Main rounds
 
-class PrintDemo {
-    public void printCount(){
-        try {
-            for(int i = 5; i > 0; i--) {
-                System.out.println("Counter   ---   "  + i );
-            }
-        } catch (Exception e) {
-            System.out.println("Thread  interrupted.");
-        }
-    }
+import java.util.LinkedList;
+import java.util.Random;
 
-}
-
-class ThreadDemo extends Thread {
-    private Thread t;
-    private String threadName;
-    PrintDemo  PD;
-
-    ThreadDemo( String name,  PrintDemo pd){
-        threadName = name;
-        PD = pd;
+class Car extends Thread {
+    int carType;
+    Station station;
+    public Car(int carType, Station station) {
+        this.carType = carType;
+        this.station = station;
     }
     public void run() {
-        synchronized(PD) {
-            PD.printCount();
-        }
-        System.out.println("Thread " +  threadName + " exiting.");
+        station.repair(carType);
     }
-
-    public void start ()
-    {
-        System.out.println("Starting " +  threadName );
-        if (t == null)
-        {
-            t = new Thread (this, threadName);
-            t.start ();
-        }
-    }
-
 }
 
-public class repairstation {
-    public static void main(String args[]) {
+class Station {
+    int slots;
+    int[] slotsType = new int[3];
+    public Station(int slots,int A, int B, int C) {
+        this.slots = slots;
+        this.slotsType[0] = A;
+        this.slotsType[1] = B;
+        this.slotsType[2] = C;
 
-        PrintDemo PD = new PrintDemo();
+    }
+    private synchronized void tryRepair(int Type) {
+        while(true) {
+            if(slotsType[Type]== 0)
+                try {
+                    System.out.print("\n" + Type + " typeslots empty");
+                    wait();
+                } catch(InterruptedException e){}
+            else {slotsType[Type]--; break;}
+        }
+        while(true) {
+            if (slots == 0)
+                try {
+                    System.out.print("\n" + Type + " slots empty");
+                    wait();
+                } catch (InterruptedException e) {}
+            else {slots--; break;}
+        }
+    }
+    private synchronized void endRepair(int Type) {
+        slots++;
+        slotsType[Type]++;
+        notify();
+    }
+    public void repair(int Type) {
+        tryRepair(Type);
+        System.out.print("\n" + Type + " just repaired");
+        endRepair(Type);
+    }
+}
 
-        ThreadDemo T1 = new ThreadDemo( "Thread - 1 ", PD );
-        ThreadDemo T2 = new ThreadDemo( "Thread - 2 ", PD );
-
-        T1.start();
-        T2.start();
-
-        // wait for threads to end
-        try {
-            T1.join();
-            T2.join();
-        } catch( Exception e) {
-            System.out.println("Interrupted");
+class repairstation {
+    static int nmrCars = 200;
+    static Station station = new Station(5, 1, 8, 8); // V, A, B, C
+    public static void main(String[] arg) {
+        Random rand = new Random();
+        for (int i = 0; i < nmrCars; i++) {
+            new Car(rand.nextInt(3), station).start();
         }
     }
 }
